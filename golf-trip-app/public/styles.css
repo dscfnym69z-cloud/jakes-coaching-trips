@@ -1,0 +1,265 @@
+:root {
+  --green-900: #0b3d24;
+  --green-700: #14532d;
+  --green-600: #1c6b3a;
+  --green-500: #2f9e5e;
+  --green-100: #e6f5eb;
+  --gold: #d4a017;
+  --red: #b3261e;
+  --gray-100: #f4f5f4;
+  --gray-300: #d9dcd8;
+  --gray-600: #5c645d;
+  --text: #16241a;
+  --white: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--gray-100);
+  color: var(--text);
+  padding-bottom: 72px;
+}
+
+header.topbar {
+  background: linear-gradient(135deg, var(--green-900), var(--green-600));
+  color: var(--white);
+  padding: 16px 16px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+header.topbar h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+header.topbar .subtitle {
+  font-size: 0.78rem;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px 12px 24px;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--green-700);
+}
+
+.scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--green-700);
+  color: var(--white);
+  border-radius: 12px;
+  padding: 18px 14px;
+  margin-bottom: 14px;
+}
+
+.scoreboard .team {
+  text-align: center;
+  flex: 1;
+}
+
+.scoreboard .team .name {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scoreboard .team .pts {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.scoreboard .vs {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  padding: 0 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+th { color: var(--gray-600); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+
+tr:last-child td { border-bottom: none; }
+
+.rank-1 { color: var(--gold); font-weight: 800; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--white);
+}
+.badge.A { background: var(--green-600); }
+.badge.B { background: var(--red); }
+
+.match-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-300);
+}
+.match-item:last-child { border-bottom: none; }
+.match-item .players { font-weight: 600; font-size: 0.9rem; }
+.match-item .status { font-size: 0.82rem; color: var(--gray-600); margin-top: 2px; }
+.match-item .status.done { color: var(--green-700); font-weight: 700; }
+
+.tabbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  background: var(--white);
+  border-top: 1px solid var(--gray-300);
+  z-index: 20;
+}
+.tabbar button {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 4px 8px;
+  font-size: 0.72rem;
+  color: var(--gray-600);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.tabbar button .icon { font-size: 1.15rem; }
+.tabbar button.active { color: var(--green-700); font-weight: 700; }
+
+label { display: block; font-size: 0.8rem; color: var(--gray-600); margin: 8px 0 4px; }
+select, input[type=text], input[type=number] {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  font-size: 0.92rem;
+  background: var(--white);
+}
+
+button.btn {
+  background: var(--green-600);
+  color: var(--white);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 10px;
+  cursor: pointer;
+}
+button.btn.secondary { background: var(--gray-300); color: var(--text); }
+button.btn.danger { background: var(--red); }
+button.btn.small { padding: 6px 10px; font-size: 0.78rem; margin-top: 0; }
+
+.hole-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.hole-box {
+  text-align: center;
+  border: 1px solid var(--gray-300);
+  border-radius: 8px;
+  padding: 5px 2px;
+  background: var(--gray-100);
+}
+.hole-box .h-label { font-size: 0.62rem; color: var(--gray-600); }
+.hole-box input {
+  width: 100%;
+  text-align: center;
+  padding: 5px 2px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  margin-top: 3px;
+}
+.hole-box .pt { font-size: 0.6rem; color: var(--green-700); font-weight: 700; min-height: 12px; }
+
+.player-row, .match-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gray-300);
+  gap: 8px;
+}
+.player-row:last-child, .match-row:last-child { border-bottom: none; }
+.player-row .info { font-size: 0.88rem; }
+.player-row .info .sub { color: var(--gray-600); font-size: 0.75rem; }
+
+.inline-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; }
+.inline-form > div { flex: 1; min-width: 90px; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+.muted { color: var(--gray-600); font-size: 0.8rem; }
+.hr { height: 1px; background: var(--gray-300); margin: 12px 0; }
+.pill-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+.pill-toggle button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+.pill-toggle button.active { background: var(--green-600); color: var(--white); border-color: var(--green-600); }
+
+.toast {
+  position: fixed;
+  bottom: 78px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--green-900);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  opacity: 0;
+  transition: opacity 0.25s;
+  z-index: 50;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
