@@ -3,7 +3,7 @@
   "players": [],
   "individualRounds": [
     { "id": "r1", "label": "Round 1", "scores": {} },
-    { "id": "r2", "label": "Round 2", "scores": {} }
+    { "id": "r2", "label": "Round 5", "scores": {} }
   ],
   "matches": []
 }
