@@ -56,8 +56,11 @@ function computeIndividualLeaderboard(course, players, individualRounds) {
   const results = players.map((p) => {
     const rounds = individualRounds.map((r) => {
       const holesGross = (r.scores && r.scores[p.id]) || new Array(course.holes.length).fill(null);
-      const res = computeIndividualRound(course, p.handicap, holesGross);
-      return { roundId: r.id, roundLabel: r.label, ...res };
+      // Each round can pin the handicap that was actually used to play it, so adjusting
+      // a player's handicap mid-week only affects rounds played after the change.
+      const handicapUsed = (r.handicaps && r.handicaps[p.id] != null) ? r.handicaps[p.id] : p.handicap;
+      const res = computeIndividualRound(course, handicapUsed, holesGross);
+      return { roundId: r.id, roundLabel: r.label, handicap: handicapUsed, ...res };
     });
     const totalPoints = rounds.reduce((s, r) => s + r.totalPoints, 0);
     const totalHolesPlayed = rounds.reduce((s, r) => s + r.holesPlayed, 0);
