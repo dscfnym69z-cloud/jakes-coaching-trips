@@ -82,21 +82,6 @@
   <!-- SETUP -->
   <div class="view" id="view-setup">
     <div class="card">
-      <h2>Teams</h2>
-      <div class="row2">
-        <div>
-          <label>Team A name</label>
-          <input type="text" id="setup-team-a-name" />
-        </div>
-        <div>
-          <label>Team B name</label>
-          <input type="text" id="setup-team-b-name" />
-        </div>
-      </div>
-      <button class="btn" id="save-teams-btn">Save Team Names</button>
-    </div>
-
-    <div class="card">
       <h2>Players</h2>
       <div id="players-list"></div>
       <div class="hr"></div>
@@ -105,7 +90,7 @@
         <div><label>Handicap</label><input type="number" id="new-player-hcp" value="0" /></div>
         <div>
           <label>Team</label>
-          <select id="new-player-team"><option value="A">A</option><option value="B">B</option></select>
+          <select id="new-player-team"><option value="A">USA</option><option value="B">Europe</option></select>
         </div>
       </div>
       <button class="btn" id="add-player-btn">Add Player</button>
@@ -124,6 +109,8 @@
       <h2>Create Match</h2>
       <label>Round / Day label</label>
       <input type="text" id="new-match-round-label" placeholder="e.g. Day 3 - Foursomes" />
+      <label>Course</label>
+      <select id="new-match-course"></select>
       <label>Format</label>
       <select id="new-match-format">
         <option value="singles">Singles</option>
@@ -143,11 +130,9 @@
     </div>
 
     <div class="card">
-      <h2>Course Setup</h2>
-      <label>Course name</label>
-      <input type="text" id="course-name-input" />
-      <div id="course-holes-editor" class="hole-grid"></div>
-      <button class="btn" id="save-course-btn">Save Course</button>
+      <h2>Courses</h2>
+      <div class="muted">Individual rounds: Costa Ballena Par 3 Course (9 holes, par 27)</div>
+      <div class="muted">Match play: Costa Ballena Golf Course — Olivos, Palmeras &amp; Ficus nines, combined into 18-hole rounds</div>
     </div>
   </div>
 </main>
