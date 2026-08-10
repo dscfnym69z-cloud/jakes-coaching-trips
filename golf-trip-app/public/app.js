@@ -196,9 +196,18 @@ async function loadIndividualHoles() {
     $('#enter-individual-holes').innerHTML = '<div class="muted">Add a player first in Setup.</div>';
     return;
   }
-  const player = state.players.find((p) => p.id === playerId);
-  const { holes } = await api(`/api/individual-rounds/${roundId}/scores/${playerId}`);
+  const { holes, handicap } = await api(`/api/individual-rounds/${roundId}/scores/${playerId}`);
   const holesDef = state.individualCourse.holes;
+
+  const hcpWrap = document.createElement('div');
+  hcpWrap.className = 'inline-form';
+  hcpWrap.style.marginBottom = '10px';
+  hcpWrap.innerHTML = `
+    <div>
+      <label>Handicap for this round</label>
+      <input type="number" id="round-handicap-input" value="${handicap}" />
+    </div>`;
+
   const grid = document.createElement('div');
   grid.className = 'hole-grid';
   holesDef.forEach((h, i) => {
@@ -213,14 +222,18 @@ async function loadIndividualHoles() {
   });
   const container = $('#enter-individual-holes');
   container.innerHTML = '';
+  container.appendChild(hcpWrap);
   container.appendChild(grid);
+
+  const hcpInput = $('#round-handicap-input');
 
   function updatePoint(i) {
     const input = grid.querySelector(`input[data-idx="${i}"]`);
     const ptEl = grid.querySelector(`[data-pt="${i}"]`);
     const g = input.value === '' ? null : Number(input.value);
     if (g == null) { ptEl.textContent = ''; return; }
-    const strokes = strokesForHole(player.handicap, holesDef[i].si);
+    const hcp = Number(hcpInput.value) || 0;
+    const strokes = strokesForHole(hcp, holesDef[i].si);
     const net = g - strokes;
     const pts = stablefordPoints(net, holesDef[i].par);
     ptEl.textContent = `${pts} pt${pts === 1 ? '' : 's'}`;
@@ -229,13 +242,17 @@ async function loadIndividualHoles() {
     updatePoint(i);
     grid.querySelector(`input[data-idx="${i}"]`).addEventListener('input', () => updatePoint(i));
   });
+  hcpInput.addEventListener('input', () => {
+    holesDef.forEach((h, i) => updatePoint(i));
+  });
 
   $('#save-individual-btn').onclick = async () => {
     const holesOut = holesDef.map((h, i) => {
       const v = grid.querySelector(`input[data-idx="${i}"]`).value;
       return v === '' ? null : Number(v);
     });
-    await api(`/api/individual-rounds/${roundId}/scores/${playerId}`, { method: 'PUT', body: JSON.stringify({ holes: holesOut }) });
+    const handicapOut = Number(hcpInput.value) || 0;
+    await api(`/api/individual-rounds/${roundId}/scores/${playerId}`, { method: 'PUT', body: JSON.stringify({ holes: holesOut, handicap: handicapOut }) });
     toast('Scores saved');
   };
 }
@@ -352,9 +369,22 @@ function renderPlayersList() {
     const row = document.createElement('div');
     row.className = 'player-row';
     row.innerHTML = `
-      <div class="info">${escapeHtml(p.name)} <span class="badge ${p.team}">${escapeHtml(teamShort(p.team))}</span><div class="sub">Handicap ${p.handicap}</div></div>
-      <button class="btn small danger" data-id="${p.id}">Remove</button>`;
-    row.querySelector('button').addEventListener('click', async () => {
+      <div class="info">
+        ${escapeHtml(p.name)} <span class="badge ${p.team}">${escapeHtml(teamShort(p.team))}</span>
+        <div class="sub" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          Handicap
+          <input type="number" class="hcp-edit" value="${p.handicap}" style="width:60px;padding:4px 6px;" />
+          <button class="btn small secondary" data-save-hcp type="button">Save</button>
+        </div>
+      </div>
+      <button class="btn small danger" data-remove>Remove</button>`;
+    row.querySelector('[data-save-hcp]').addEventListener('click', async () => {
+      const handicap = Number(row.querySelector('.hcp-edit').value) || 0;
+      await api(`/api/players/${p.id}`, { method: 'PUT', body: JSON.stringify({ handicap }) });
+      toast(`${p.name}'s handicap updated — future rounds will use it`);
+      await refreshSetupTab();
+    });
+    row.querySelector('[data-remove]').addEventListener('click', async () => {
       if (!confirm(`Remove ${p.name}?`)) return;
       await api(`/api/players/${p.id}`, { method: 'DELETE' });
       toast('Player removed');
