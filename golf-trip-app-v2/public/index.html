@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Golf Trip Live</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1 id="course-title">⛳ Golf Trip Live</h1>
+  <div class="subtitle" id="header-subtitle">Individual competition &amp; Ryder Cup</div>
+</header>
+
+<main>
+  <!-- LEADERBOARD -->
+  <div class="view active" id="view-leaderboard">
+    <div class="scoreboard">
+      <div class="team">
+        <div class="name" id="lb-team-a-name">Team A</div>
+        <div class="pts" id="lb-team-a-pts">0</div>
+      </div>
+      <div class="vs">RYDER CUP</div>
+      <div class="team">
+        <div class="name" id="lb-team-b-name">Team B</div>
+        <div class="pts" id="lb-team-b-pts">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Individual Stableford (Net)</h2>
+      <div class="muted" id="lb-rounds-note">Counts: Round 1 + Round 2</div>
+      <table id="lb-individual-table">
+        <thead>
+          <tr><th>#</th><th>Player</th><th>Team</th><th>Pts</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Match Play Results</h2>
+      <div id="lb-matches-list"></div>
+    </div>
+  </div>
+
+  <!-- ENTER SCORE -->
+  <div class="view" id="view-enter">
+    <div class="card">
+      <h2>Enter a Score</h2>
+      <div class="pill-toggle">
+        <button id="enter-mode-individual" class="active">Individual Round</button>
+        <button id="enter-mode-match">Match Play</button>
+      </div>
+
+      <div id="enter-individual-panel">
+        <label>Player</label>
+        <select id="enter-player-select"></select>
+        <label>Round</label>
+        <select id="enter-round-select"></select>
+        <div id="enter-individual-holes"></div>
+        <button class="btn" id="save-individual-btn">Save Scores</button>
+      </div>
+
+      <div id="enter-match-panel" style="display:none;">
+        <label>Match</label>
+        <select id="enter-match-select"></select>
+        <div id="enter-match-holes"></div>
+        <button class="btn" id="save-match-btn" style="display:none;">Save Scores</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MATCHES -->
+  <div class="view" id="view-matches">
+    <div class="card">
+      <h2>All Matches</h2>
+      <div id="matches-full-list"></div>
+    </div>
+  </div>
+
+  <!-- SETUP -->
+  <div class="view" id="view-setup">
+    <div class="card">
+      <h2>Players</h2>
+      <div id="players-list"></div>
+      <div class="hr"></div>
+      <div class="inline-form">
+        <div><label>Name</label><input type="text" id="new-player-name" /></div>
+        <div><label>Handicap</label><input type="number" id="new-player-hcp" value="0" /></div>
+        <div>
+          <label>Team</label>
+          <select id="new-player-team"><option value="A">USA</option><option value="B">Europe</option></select>
+        </div>
+      </div>
+      <button class="btn" id="add-player-btn">Add Player</button>
+    </div>
+
+    <div class="card">
+      <h2>Individual Rounds</h2>
+      <div id="rounds-list" class="muted"></div>
+      <div class="inline-form">
+        <div><label>New round label</label><input type="text" id="new-round-label" placeholder="e.g. Round 3" /></div>
+      </div>
+      <button class="btn secondary" id="add-round-btn">Add Round</button>
+    </div>
+
+    <div class="card">
+      <h2>Create Match</h2>
+      <label>Round / Day label</label>
+      <input type="text" id="new-match-round-label" placeholder="e.g. Day 3 - Foursomes" />
+      <label>Format</label>
+      <select id="new-match-format">
+        <option value="singles">Singles</option>
+        <option value="betterball">Better Ball (Fourball)</option>
+        <option value="greensomes">Greensomes</option>
+      </select>
+      <div id="new-match-players"></div>
+      <label>Points for this match</label>
+      <input type="number" id="new-match-points" value="1" step="0.5" />
+      <div id="new-match-strokes"></div>
+      <button class="btn" id="create-match-btn">Create Match</button>
+    </div>
+
+    <div class="card">
+      <h2>Existing Matches</h2>
+      <div id="setup-matches-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Course Setup</h2>
+      <label>Course name</label>
+      <input type="text" id="course-name-input" />
+      <div id="course-holes-editor" class="hole-grid"></div>
+      <button class="btn" id="save-course-btn">Save Course</button>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-view="leaderboard"><span class="icon">🏆</span>Leaderboard</button>
+  <button class="tab-btn" data-view="enter"><span class="icon">✏️</span>Enter Score</button>
+  <button class="tab-btn" data-view="matches"><span class="icon">🤝</span>Matches</button>
+  <button class="tab-btn" data-view="setup"><span class="icon">⚙️</span>Setup</button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
