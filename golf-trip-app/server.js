@@ -17,6 +17,20 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ---------- Storage backend ----------
+// If DATABASE_URL is set (a Postgres connection string, e.g. from Render), all
+// trip data is persisted there so it survives redeploys and free-instance restarts.
+// Otherwise we fall back to the local data.json file (handy for local dev), which
+// does NOT survive redeploys on a host with no persistent disk.
+let pool = null;
+if (process.env.DATABASE_URL) {
+  const { Pool } = require('pg');
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+  });
+}
+
 function defaultData() {
   return {
     teams: { A: { name: 'Team USA' }, B: { name: 'Team Europe' } },
@@ -29,7 +43,22 @@ function defaultData() {
   };
 }
 
-function loadData() {
+async function ensureTable() {
+  await pool.query('CREATE TABLE IF NOT EXISTS app_state (id INT PRIMARY KEY, data JSONB NOT NULL)');
+}
+
+async function loadData() {
+  if (pool) {
+    await ensureTable();
+    const res = await pool.query('SELECT data FROM app_state WHERE id = 1');
+    if (res.rows.length === 0) {
+      const d = defaultData();
+      await pool.query('INSERT INTO app_state (id, data) VALUES (1, $1)', [d]);
+      return d;
+    }
+    return res.rows[0].data;
+  }
+  // File fallback (local dev only — not persistent on hosts without a disk)
   if (!fs.existsSync(DATA_FILE)) {
     const d = defaultData();
     fs.writeFileSync(DATA_FILE, JSON.stringify(d, null, 2));
@@ -44,7 +73,14 @@ function loadData() {
   }
 }
 
-function saveData(data) {
+async function saveData(data) {
+  if (pool) {
+    await pool.query(
+      'INSERT INTO app_state (id, data) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET data = $1',
+      [data]
+    );
+    return;
+  }
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
@@ -52,7 +88,7 @@ function courseForMatch(m) {
   return MATCH_COURSES[m.courseKey] || MATCH_COURSES[DEFAULT_MATCH_COURSE_KEY];
 }
 
-let data = loadData();
+let data = defaultData();
 
 // ---------- State ----------
 app.get('/api/state', (req, res) => {
@@ -77,39 +113,39 @@ app.get('/api/state', (req, res) => {
 });
 
 // ---------- Players ----------
-app.post('/api/players', (req, res) => {
+app.post('/api/players', async (req, res) => {
   const { name, handicap, team } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
   const player = { id: nanoid(8), name, handicap: Number(handicap) || 0, team: team === 'B' ? 'B' : 'A' };
   data.players.push(player);
-  saveData(data);
+  await saveData(data);
   res.json(player);
 });
 
-app.put('/api/players/:id', (req, res) => {
+app.put('/api/players/:id', async (req, res) => {
   const p = data.players.find((x) => x.id === req.params.id);
   if (!p) return res.status(404).json({ error: 'not found' });
   const { name, handicap, team } = req.body;
   if (name != null) p.name = name;
   if (handicap != null) p.handicap = Number(handicap);
   if (team != null) p.team = team === 'B' ? 'B' : 'A';
-  saveData(data);
+  await saveData(data);
   res.json(p);
 });
 
-app.delete('/api/players/:id', (req, res) => {
+app.delete('/api/players/:id', async (req, res) => {
   data.players = data.players.filter((x) => x.id !== req.params.id);
   // also strip from any match rosters left dangling is fine, they just show name still in matches created earlier
-  saveData(data);
+  await saveData(data);
   res.json({ ok: true });
 });
 
 // ---------- Individual rounds & scores (always on the Par 3 course) ----------
-app.post('/api/individual-rounds', (req, res) => {
+app.post('/api/individual-rounds', async (req, res) => {
   const { label } = req.body;
   const round = { id: nanoid(8), label: label || `Round ${data.individualRounds.length + 1}`, scores: {}, handicaps: {} };
   data.individualRounds.push(round);
-  saveData(data);
+  await saveData(data);
   res.json({ id: round.id, label: round.label });
 });
 
@@ -128,7 +164,7 @@ app.get('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
   res.json({ holes, handicap });
 });
 
-app.put('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
+app.put('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
   const round = data.individualRounds.find((r) => r.id === req.params.id);
   if (!round) return res.status(404).json({ error: 'round not found' });
   const { holes, handicap } = req.body;
@@ -141,7 +177,7 @@ app.put('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
     const player = data.players.find((p) => p.id === req.params.playerId);
     if (player) round.handicaps[req.params.playerId] = player.handicap;
   }
-  saveData(data);
+  await saveData(data);
   res.json({ ok: true });
 });
 
@@ -167,7 +203,7 @@ app.post('/api/matches/suggest-strokes', (req, res) => {
   res.json(suggestStrokes(format, teamAHandicaps || [], teamBHandicaps || []));
 });
 
-app.post('/api/matches', (req, res) => {
+app.post('/api/matches', async (req, res) => {
   const { roundLabel, format, courseKey, teamAPlayers, teamBPlayers, strokesA, strokesB, points } = req.body;
   if (!['singles', 'betterball', 'greensomes'].includes(format)) {
     return res.status(400).json({ error: 'invalid format' });
@@ -192,11 +228,11 @@ app.post('/api/matches', (req, res) => {
     });
   }
   data.matches.push(match);
-  saveData(data);
+  await saveData(data);
   res.json(match);
 });
 
-app.put('/api/matches/:id/score', (req, res) => {
+app.put('/api/matches/:id/score', async (req, res) => {
   const m = data.matches.find((x) => x.id === req.params.id);
   if (!m) return res.status(404).json({ error: 'not found' });
   const { side, playerId, holes } = req.body;
@@ -210,11 +246,11 @@ app.put('/api/matches/:id/score', (req, res) => {
     if (side !== 'A' && side !== 'B') return res.status(400).json({ error: 'side A or B required' });
     m.holes[side] = cleaned;
   }
-  saveData(data);
+  await saveData(data);
   res.json({ ok: true });
 });
 
-app.put('/api/matches/:id', (req, res) => {
+app.put('/api/matches/:id', async (req, res) => {
   const m = data.matches.find((x) => x.id === req.params.id);
   if (!m) return res.status(404).json({ error: 'not found' });
   const { strokesA, strokesB, points, roundLabel } = req.body;
@@ -222,13 +258,13 @@ app.put('/api/matches/:id', (req, res) => {
   if (strokesB != null) m.strokesB = m.format === 'betterball' ? strokesB : Number(strokesB);
   if (points != null) m.points = Number(points);
   if (roundLabel != null) m.roundLabel = roundLabel;
-  saveData(data);
+  await saveData(data);
   res.json(m);
 });
 
-app.delete('/api/matches/:id', (req, res) => {
+app.delete('/api/matches/:id', async (req, res) => {
   data.matches = data.matches.filter((x) => x.id !== req.params.id);
-  saveData(data);
+  await saveData(data);
   res.json({ ok: true });
 });
 
@@ -237,13 +273,17 @@ app.get('/api/leaderboard/team', (req, res) => {
 });
 
 // ---------- Reset (danger) ----------
-app.post('/api/reset', (req, res) => {
+app.post('/api/reset', async (req, res) => {
   data = defaultData();
-  saveData(data);
+  await saveData(data);
   res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Golf Trip Live running on port ${PORT}`);
-});
+async function start() {
+  data = await loadData();
+  app.listen(PORT, () => {
+    console.log(`Golf Trip Live running on port ${PORT} (storage: ${pool ? 'postgres' : 'file'})`);
+  });
+}
+start();
