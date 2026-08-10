@@ -181,6 +181,17 @@ app.put('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Clears (deletes) a player's entire entry for one individual round — holes and
+// pinned handicap both reset, so the round goes back to "not played" for them.
+app.delete('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
+  const round = data.individualRounds.find((r) => r.id === req.params.id);
+  if (!round) return res.status(404).json({ error: 'round not found' });
+  delete round.scores[req.params.playerId];
+  if (round.handicaps) delete round.handicaps[req.params.playerId];
+  await saveData(data);
+  res.json({ ok: true });
+});
+
 app.get('/api/leaderboard/individual', (req, res) => {
   const lb = computeIndividualLeaderboard(PAR3_COURSE, data.players, data.individualRounds);
   res.json(lb);
@@ -245,6 +256,25 @@ app.put('/api/matches/:id/score', async (req, res) => {
   } else {
     if (side !== 'A' && side !== 'B') return res.status(400).json({ error: 'side A or B required' });
     m.holes[side] = cleaned;
+  }
+  await saveData(data);
+  res.json({ ok: true });
+});
+
+// Clears (deletes) all hole scores for one side (singles/greensomes) or one
+// player (betterball) in a match, resetting that portion back to "not played".
+app.delete('/api/matches/:id/score', async (req, res) => {
+  const m = data.matches.find((x) => x.id === req.params.id);
+  if (!m) return res.status(404).json({ error: 'not found' });
+  const { side, playerId } = req.body || {};
+  const holeCount = courseForMatch(m).holes.length;
+  if (m.format === 'betterball') {
+    if (!playerId) return res.status(400).json({ error: 'playerId required for betterball' });
+    if (!m.holes.players) m.holes.players = {};
+    m.holes.players[playerId] = new Array(holeCount).fill(null);
+  } else {
+    if (side !== 'A' && side !== 'B') return res.status(400).json({ error: 'side A or B required' });
+    m.holes[side] = new Array(holeCount).fill(null);
   }
   await saveData(data);
   res.json({ ok: true });
