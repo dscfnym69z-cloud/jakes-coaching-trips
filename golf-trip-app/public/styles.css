@@ -6,6 +6,7 @@
   --green-100: #e6f5eb;
   --gold: #d4a017;
   --red: #b3261e;
+  --blue: #1a56c4;
   --gray-100: #f4f5f4;
   --gray-300: #d9dcd8;
   --gray-600: #5c645d;
@@ -129,8 +130,8 @@ tr:last-child td { border-bottom: none; }
   font-weight: 700;
   color: var(--white);
 }
-.badge.A { background: var(--green-600); }
-.badge.B { background: var(--red); }
+.badge.A { background: var(--red); }
+.badge.B { background: var(--blue); }
 
 .match-item {
   padding: 10px 0;
