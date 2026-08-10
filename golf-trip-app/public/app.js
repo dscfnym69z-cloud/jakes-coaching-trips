@@ -40,7 +40,7 @@ function stablefordPoints(net, par) {
 }
 
 // ---------- global state cache ----------
-let state = { course: null, teams: null, players: [], individualRounds: [], matches: [] };
+let state = { individualCourse: null, matchCourses: null, teams: null, players: [], individualRounds: [], matches: [] };
 
 // ---------- tabs ----------
 $$('.tab-btn').forEach((btn) => {
@@ -66,8 +66,7 @@ async function refreshLeaderboard() {
   await loadState();
   $('#lb-team-a-name').textContent = state.teams.A.name;
   $('#lb-team-b-name').textContent = state.teams.B.name;
-  $('#course-title').textContent = `⛳ ${state.course.name || 'Golf Trip Live'}`;
-  $('#lb-rounds-note').textContent = `Counts: ${state.individualRounds.map((r) => r.label).join(' + ')}`;
+  $('#lb-rounds-note').textContent = `Counts: ${state.individualRounds.map((r) => r.label).join(' + ')} on ${state.individualCourse.name}`;
 
   const team = await api('/api/leaderboard/team');
   $('#lb-team-a-pts').textContent = team.teamA.points;
@@ -96,7 +95,7 @@ async function refreshLeaderboard() {
     tr.innerHTML = `
       <td class="${i === 0 && p.totalHolesPlayed > 0 ? 'rank-1' : ''}">${i + 1}</td>
       <td>${escapeHtml(p.name)}</td>
-      <td><span class="badge ${p.team}">${p.team}</span></td>
+      <td><span class="badge ${p.team}">${escapeHtml(teamShort(p.team))}</span></td>
       <td><strong>${p.totalPoints}</strong></td>`;
     tbody.appendChild(tr);
   });
@@ -107,9 +106,10 @@ function matchItemEl(r) {
   div.className = 'match-item';
   const aNames = r.match.teamAPlayers.map((p) => p.name).join(' & ');
   const bNames = r.match.teamBPlayers.map((p) => p.name).join(' & ');
+  const courseName = state.matchCourses?.[r.match.courseKey]?.name || '';
   div.innerHTML = `
     <div class="players">${escapeHtml(aNames)} <span class="muted">vs</span> ${escapeHtml(bNames)}</div>
-    <div class="status ${r.finished ? 'done' : ''}">${escapeHtml(r.status)} &middot; ${formatLabel(r.match.format)}</div>`;
+    <div class="status ${r.finished ? 'done' : ''}">${escapeHtml(r.status)} &middot; ${formatLabel(r.match.format)}${courseName ? ` &middot; ${escapeHtml(courseName)}` : ''}</div>`;
   return div;
 }
 
@@ -123,6 +123,11 @@ function groupBy(arr, keyFn) {
     (acc[k] = acc[k] || []).push(item);
     return acc;
   }, {});
+}
+
+function teamShort(team) {
+  const name = state.teams?.[team]?.name || team;
+  return name.replace(/^Team\s+/i, '');
 }
 
 function escapeHtml(s) {
@@ -164,7 +169,7 @@ function setEnterMode(mode) {
 async function refreshEnterTab() {
   await loadState();
   const playerSel = $('#enter-player-select');
-  playerSel.innerHTML = state.players.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${p.team})</option>`).join('');
+  playerSel.innerHTML = state.players.map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(teamShort(p.team))})</option>`).join('');
   const roundSel = $('#enter-round-select');
   roundSel.innerHTML = state.individualRounds.map((r) => `<option value="${r.id}">${escapeHtml(r.label)}</option>`).join('');
 
@@ -193,7 +198,7 @@ async function loadIndividualHoles() {
   }
   const player = state.players.find((p) => p.id === playerId);
   const { holes } = await api(`/api/individual-rounds/${roundId}/scores/${playerId}`);
-  const holesDef = state.course.holes;
+  const holesDef = state.individualCourse.holes;
   const grid = document.createElement('div');
   grid.className = 'hole-grid';
   holesDef.forEach((h, i) => {
@@ -246,7 +251,7 @@ async function loadMatchHoles() {
   }
   const data = await api(`/api/matches/${matchId}`);
   const m = data.match;
-  const holesDef = state.course.holes;
+  const holesDef = (state.matchCourses[m.courseKey] || Object.values(state.matchCourses)[0]).holes;
   const wrap = document.createElement('div');
   wrap.style.overflowX = 'auto';
 
@@ -323,21 +328,21 @@ async function loadMatchHoles() {
 // ============ SETUP TAB ============
 async function refreshSetupTab() {
   await loadState();
-  $('#setup-team-a-name').value = state.teams.A.name;
-  $('#setup-team-b-name').value = state.teams.B.name;
-
   renderPlayersList();
   renderRoundsList();
+  renderMatchCourseOptions();
   renderNewMatchPlayerFields();
   renderExistingMatches();
-  renderCourseEditor();
 }
 
-$('#save-teams-btn').addEventListener('click', async () => {
-  await api('/api/teams', { method: 'PUT', body: JSON.stringify({ A: { name: $('#setup-team-a-name').value }, B: { name: $('#setup-team-b-name').value } }) });
-  toast('Team names saved');
-  await refreshSetupTab();
-});
+function renderMatchCourseOptions() {
+  const sel = $('#new-match-course');
+  const prev = sel.value;
+  sel.innerHTML = Object.entries(state.matchCourses)
+    .map(([key, c]) => `<option value="${key}">${escapeHtml(c.name)} (Par ${c.holes.reduce((s, h) => s + h.par, 0)})</option>`)
+    .join('');
+  if (prev && state.matchCourses[prev]) sel.value = prev;
+}
 
 function renderPlayersList() {
   const list = $('#players-list');
@@ -347,7 +352,7 @@ function renderPlayersList() {
     const row = document.createElement('div');
     row.className = 'player-row';
     row.innerHTML = `
-      <div class="info">${escapeHtml(p.name)} <span class="badge ${p.team}">${p.team}</span><div class="sub">Handicap ${p.handicap}</div></div>
+      <div class="info">${escapeHtml(p.name)} <span class="badge ${p.team}">${escapeHtml(teamShort(p.team))}</span><div class="sub">Handicap ${p.handicap}</div></div>
       <button class="btn small danger" data-id="${p.id}">Remove</button>`;
     row.querySelector('button').addEventListener('click', async () => {
       if (!confirm(`Remove ${p.name}?`)) return;
@@ -462,6 +467,7 @@ function renderStrokesFields() {
 
 $('#create-match-btn').addEventListener('click', async () => {
   const roundLabel = $('#new-match-round-label').value.trim() || 'Match Play';
+  const courseKey = $('#new-match-course').value;
   const points = $('#new-match-points').value;
   const { format, a, b } = selectedMatchPlayers();
   if (!a.length || !b.length || (format !== 'singles' && (a.length < 2 || b.length < 2))) {
@@ -478,7 +484,7 @@ $('#create-match-btn').addEventListener('click', async () => {
   await api('/api/matches', {
     method: 'POST',
     body: JSON.stringify({
-      roundLabel, format, points,
+      roundLabel, format, courseKey, points,
       teamAPlayers: a.map((p) => ({ id: p.id, name: p.name })),
       teamBPlayers: b.map((p) => ({ id: p.id, name: p.name })),
       strokesA, strokesB,
@@ -513,31 +519,6 @@ function renderExistingMatches() {
     list.appendChild(row);
   });
 }
-
-function renderCourseEditor() {
-  $('#course-name-input').value = state.course.name || '';
-  const grid = $('#course-holes-editor');
-  grid.innerHTML = '';
-  state.course.holes.forEach((h, i) => {
-    const box = document.createElement('div');
-    box.className = 'hole-box';
-    box.innerHTML = `
-      <div class="h-label">Hole ${h.number}</div>
-      <input type="number" min="3" max="6" data-par-idx="${i}" value="${h.par}" placeholder="Par" />
-      <input type="number" min="1" max="18" data-si-idx="${i}" value="${h.si}" placeholder="SI" style="margin-top:3px;" />`;
-    grid.appendChild(box);
-  });
-}
-
-$('#save-course-btn').addEventListener('click', async () => {
-  const holes = state.course.holes.map((h, i) => ({
-    par: Number($(`[data-par-idx="${i}"]`).value) || 4,
-    si: Number($(`[data-si-idx="${i}"]`).value) || i + 1,
-  }));
-  await api('/api/course', { method: 'PUT', body: JSON.stringify({ name: $('#course-name-input').value, holes }) });
-  toast('Course saved');
-  await refreshSetupTab();
-});
 
 // ============ INIT + POLLING ============
 async function init() {
