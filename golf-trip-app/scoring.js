@@ -227,11 +227,15 @@ function teamName(match, side) {
   return (players || []).map((p) => p.name).join(' & ') || `Team ${side}`;
 }
 
-function computeTeamLeaderboard(course, teams, matches) {
+/**
+ * courseForMatch: (match) => course object to use for that specific match.
+ * Allows different matches to be played on different course combinations.
+ */
+function computeTeamLeaderboard(teams, matches, courseForMatch) {
   let pointsA = 0;
   let pointsB = 0;
   const matchResults = matches.map((m) => {
-    const res = computeMatch(course, m);
+    const res = computeMatch(courseForMatch(m), m);
     pointsA += res.pointsA;
     pointsB += res.pointsB;
     return { match: m, ...res };
