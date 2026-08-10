@@ -22,8 +22,8 @@ function defaultData() {
     teams: { A: { name: 'Team USA' }, B: { name: 'Team Europe' } },
     players: [],
     individualRounds: [
-      { id: 'r1', label: 'Round 1', scores: {} },
-      { id: 'r2', label: 'Round 5', scores: {} },
+      { id: 'r1', label: 'Round 1', scores: {}, handicaps: {} },
+      { id: 'r2', label: 'Round 5', scores: {}, handicaps: {} },
     ],
     matches: [],
   };
@@ -107,25 +107,40 @@ app.delete('/api/players/:id', (req, res) => {
 // ---------- Individual rounds & scores (always on the Par 3 course) ----------
 app.post('/api/individual-rounds', (req, res) => {
   const { label } = req.body;
-  const round = { id: nanoid(8), label: label || `Round ${data.individualRounds.length + 1}`, scores: {} };
+  const round = { id: nanoid(8), label: label || `Round ${data.individualRounds.length + 1}`, scores: {}, handicaps: {} };
   data.individualRounds.push(round);
   saveData(data);
   res.json({ id: round.id, label: round.label });
 });
 
+// Returns the scores entered for this player in this round, plus the handicap that
+// applies to this specific round (pinned once saved, so later handicap changes don't
+// retroactively change already-played rounds). Falls back to the player's current
+// handicap if this round has never had a handicap saved for them yet.
 app.get('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
   const round = data.individualRounds.find((r) => r.id === req.params.id);
   if (!round) return res.status(404).json({ error: 'round not found' });
   const holes = round.scores[req.params.playerId] || new Array(PAR3_COURSE.holes.length).fill(null);
-  res.json({ holes });
+  const player = data.players.find((p) => p.id === req.params.playerId);
+  const handicap = (round.handicaps && round.handicaps[req.params.playerId] != null)
+    ? round.handicaps[req.params.playerId]
+    : (player ? player.handicap : 0);
+  res.json({ holes, handicap });
 });
 
 app.put('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
   const round = data.individualRounds.find((r) => r.id === req.params.id);
   if (!round) return res.status(404).json({ error: 'round not found' });
-  const { holes } = req.body;
+  const { holes, handicap } = req.body;
   if (!Array.isArray(holes)) return res.status(400).json({ error: 'holes array required' });
   round.scores[req.params.playerId] = holes.map((h) => (h === '' || h == null ? null : Number(h)));
+  if (!round.handicaps) round.handicaps = {};
+  if (handicap != null && handicap !== '') {
+    round.handicaps[req.params.playerId] = Number(handicap);
+  } else if (round.handicaps[req.params.playerId] == null) {
+    const player = data.players.find((p) => p.id === req.params.playerId);
+    if (player) round.handicaps[req.params.playerId] = player.handicap;
+  }
   saveData(data);
   res.json({ ok: true });
 });
