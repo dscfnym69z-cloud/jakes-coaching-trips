@@ -255,6 +255,16 @@ async function loadIndividualHoles() {
     await api(`/api/individual-rounds/${roundId}/scores/${playerId}`, { method: 'PUT', body: JSON.stringify({ holes: holesOut, handicap: handicapOut }) });
     toast('Scores saved');
   };
+
+  const clearBtn = $('#clear-individual-btn');
+  if (clearBtn) {
+    clearBtn.onclick = async () => {
+      if (!confirm('Clear this player\'s entire round? This deletes all their hole scores for this round.')) return;
+      await api(`/api/individual-rounds/${roundId}/scores/${playerId}`, { method: 'DELETE' });
+      toast('Round cleared');
+      await loadIndividualHoles();
+    };
+  }
 }
 
 async function loadMatchHoles() {
@@ -294,6 +304,21 @@ async function loadMatchHoles() {
     wrap.appendChild(table);
     container.innerHTML = '';
     container.appendChild(wrap);
+
+    const clearRow = document.createElement('div');
+    clearRow.className = 'inline-form';
+    clearRow.style.marginTop = '10px';
+    clearRow.innerHTML = cols.map((c) => `<button class="btn small danger" data-clear-player="${c.id}" type="button">Clear ${escapeHtml(c.name)}</button>`).join('');
+    container.appendChild(clearRow);
+    cols.forEach((c) => {
+      clearRow.querySelector(`[data-clear-player="${c.id}"]`).addEventListener('click', async () => {
+        if (!confirm(`Clear all of ${c.name}'s hole scores for this match?`)) return;
+        await api(`/api/matches/${matchId}/score`, { method: 'DELETE', body: JSON.stringify({ playerId: c.id }) });
+        toast('Scores cleared');
+        await loadMatchHoles();
+      });
+    });
+
     saveBtn.style.display = '';
     saveBtn.onclick = async () => {
       for (const c of cols) {
@@ -322,6 +347,23 @@ async function loadMatchHoles() {
     wrap.appendChild(table);
     container.innerHTML = '';
     container.appendChild(wrap);
+
+    const clearRow = document.createElement('div');
+    clearRow.className = 'inline-form';
+    clearRow.style.marginTop = '10px';
+    clearRow.innerHTML = `
+      <button class="btn small danger" data-clear-side="A" type="button">Clear ${escapeHtml(aNames.join(' & '))}</button>
+      <button class="btn small danger" data-clear-side="B" type="button">Clear ${escapeHtml(bNames.join(' & '))}</button>`;
+    container.appendChild(clearRow);
+    ['A', 'B'].forEach((side) => {
+      clearRow.querySelector(`[data-clear-side="${side}"]`).addEventListener('click', async () => {
+        if (!confirm(`Clear all hole scores for ${side === 'A' ? aNames.join(' & ') : bNames.join(' & ')}?`)) return;
+        await api(`/api/matches/${matchId}/score`, { method: 'DELETE', body: JSON.stringify({ side }) });
+        toast('Scores cleared');
+        await loadMatchHoles();
+      });
+    });
+
     saveBtn.style.display = '';
     saveBtn.onclick = async () => {
       for (const side of ['A', 'B']) {
