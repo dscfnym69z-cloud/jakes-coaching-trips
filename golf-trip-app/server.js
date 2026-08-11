@@ -88,6 +88,26 @@ function courseForMatch(m) {
   return MATCH_COURSES[m.courseKey] || MATCH_COURSES[DEFAULT_MATCH_COURSE_KEY];
 }
 
+// ---------- Admin gate ----------
+// Everyone can view (GET) the leaderboard, matches, etc. Only requests carrying the
+// correct X-Admin-Password header can add/edit/delete anything. The password lives in
+// the ADMIN_PASSWORD env var on the server and is never shipped to the client.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+
+function requireAdmin(req, res, next) {
+  const provided = req.headers['x-admin-password'];
+  if (!ADMIN_PASSWORD || provided !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  next();
+}
+
+app.post('/api/admin/verify', (req, res) => {
+  const { password } = req.body || {};
+  if (ADMIN_PASSWORD && password === ADMIN_PASSWORD) return res.json({ ok: true });
+  res.status(401).json({ ok: false });
+});
+
 let data = defaultData();
 
 // ---------- State ----------
@@ -113,7 +133,7 @@ app.get('/api/state', (req, res) => {
 });
 
 // ---------- Players ----------
-app.post('/api/players', async (req, res) => {
+app.post('/api/players', requireAdmin, async (req, res) => {
   const { name, handicap, team } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
   const player = { id: nanoid(8), name, handicap: Number(handicap) || 0, team: team === 'B' ? 'B' : 'A' };
@@ -122,7 +142,7 @@ app.post('/api/players', async (req, res) => {
   res.json(player);
 });
 
-app.put('/api/players/:id', async (req, res) => {
+app.put('/api/players/:id', requireAdmin, async (req, res) => {
   const p = data.players.find((x) => x.id === req.params.id);
   if (!p) return res.status(404).json({ error: 'not found' });
   const { name, handicap, team } = req.body;
@@ -133,7 +153,7 @@ app.put('/api/players/:id', async (req, res) => {
   res.json(p);
 });
 
-app.delete('/api/players/:id', async (req, res) => {
+app.delete('/api/players/:id', requireAdmin, async (req, res) => {
   data.players = data.players.filter((x) => x.id !== req.params.id);
   // also strip from any match rosters left dangling is fine, they just show name still in matches created earlier
   await saveData(data);
@@ -141,7 +161,7 @@ app.delete('/api/players/:id', async (req, res) => {
 });
 
 // ---------- Individual rounds & scores (always on the Par 3 course) ----------
-app.post('/api/individual-rounds', async (req, res) => {
+app.post('/api/individual-rounds', requireAdmin, async (req, res) => {
   const { label } = req.body;
   const round = { id: nanoid(8), label: label || `Round ${data.individualRounds.length + 1}`, scores: {}, handicaps: {} };
   data.individualRounds.push(round);
@@ -164,7 +184,7 @@ app.get('/api/individual-rounds/:id/scores/:playerId', (req, res) => {
   res.json({ holes, handicap });
 });
 
-app.put('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
+app.put('/api/individual-rounds/:id/scores/:playerId', requireAdmin, async (req, res) => {
   const round = data.individualRounds.find((r) => r.id === req.params.id);
   if (!round) return res.status(404).json({ error: 'round not found' });
   const { holes, handicap } = req.body;
@@ -183,7 +203,7 @@ app.put('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
 
 // Clears (deletes) a player's entire entry for one individual round — holes and
 // pinned handicap both reset, so the round goes back to "not played" for them.
-app.delete('/api/individual-rounds/:id/scores/:playerId', async (req, res) => {
+app.delete('/api/individual-rounds/:id/scores/:playerId', requireAdmin, async (req, res) => {
   const round = data.individualRounds.find((r) => r.id === req.params.id);
   if (!round) return res.status(404).json({ error: 'round not found' });
   delete round.scores[req.params.playerId];
@@ -214,7 +234,7 @@ app.post('/api/matches/suggest-strokes', (req, res) => {
   res.json(suggestStrokes(format, teamAHandicaps || [], teamBHandicaps || []));
 });
 
-app.post('/api/matches', async (req, res) => {
+app.post('/api/matches', requireAdmin, async (req, res) => {
   const { roundLabel, format, courseKey, teamAPlayers, teamBPlayers, strokesA, strokesB, points } = req.body;
   if (!['singles', 'betterball', 'greensomes'].includes(format)) {
     return res.status(400).json({ error: 'invalid format' });
@@ -243,7 +263,7 @@ app.post('/api/matches', async (req, res) => {
   res.json(match);
 });
 
-app.put('/api/matches/:id/score', async (req, res) => {
+app.put('/api/matches/:id/score', requireAdmin, async (req, res) => {
   const m = data.matches.find((x) => x.id === req.params.id);
   if (!m) return res.status(404).json({ error: 'not found' });
   const { side, playerId, holes } = req.body;
@@ -263,7 +283,7 @@ app.put('/api/matches/:id/score', async (req, res) => {
 
 // Clears (deletes) all hole scores for one side (singles/greensomes) or one
 // player (betterball) in a match, resetting that portion back to "not played".
-app.delete('/api/matches/:id/score', async (req, res) => {
+app.delete('/api/matches/:id/score', requireAdmin, async (req, res) => {
   const m = data.matches.find((x) => x.id === req.params.id);
   if (!m) return res.status(404).json({ error: 'not found' });
   const { side, playerId } = req.body || {};
@@ -280,7 +300,7 @@ app.delete('/api/matches/:id/score', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.put('/api/matches/:id', async (req, res) => {
+app.put('/api/matches/:id', requireAdmin, async (req, res) => {
   const m = data.matches.find((x) => x.id === req.params.id);
   if (!m) return res.status(404).json({ error: 'not found' });
   const { strokesA, strokesB, points, roundLabel } = req.body;
@@ -292,7 +312,7 @@ app.put('/api/matches/:id', async (req, res) => {
   res.json(m);
 });
 
-app.delete('/api/matches/:id', async (req, res) => {
+app.delete('/api/matches/:id', requireAdmin, async (req, res) => {
   data.matches = data.matches.filter((x) => x.id !== req.params.id);
   await saveData(data);
   res.json({ ok: true });
@@ -303,7 +323,7 @@ app.get('/api/leaderboard/team', (req, res) => {
 });
 
 // ---------- Reset (danger) ----------
-app.post('/api/reset', async (req, res) => {
+app.post('/api/reset', requireAdmin, async (req, res) => {
   data = defaultData();
   await saveData(data);
   res.json({ ok: true });
