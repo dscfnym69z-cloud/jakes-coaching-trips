@@ -47,6 +47,20 @@ header.topbar .subtitle {
   margin-top: 2px;
 }
 
+.admin-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.15);
+  color: var(--white);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 main {
   max-width: 720px;
   margin: 0 auto;
