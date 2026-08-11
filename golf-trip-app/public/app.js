@@ -2,11 +2,38 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+// ---------- admin gate ----------
+function getAdminPassword() {
+  return localStorage.getItem('adminPassword') || '';
+}
+function isAdmin() {
+  return !!getAdminPassword();
+}
+function updateAdminUI() {
+  const admin = isAdmin();
+  const enterTab = document.querySelector('.tab-btn[data-view="enter"]');
+  const setupTab = document.querySelector('.tab-btn[data-view="setup"]');
+  if (enterTab) enterTab.style.display = admin ? '' : 'none';
+  if (setupTab) setupTab.style.display = admin ? '' : 'none';
+  const btn = $('#admin-toggle-btn');
+  if (btn) btn.textContent = admin ? '🔓 Admin' : '🔒 Admin';
+  const activeBtn = $('.tab-btn.active');
+  if (!admin && activeBtn && (activeBtn.dataset.view === 'enter' || activeBtn.dataset.view === 'setup')) {
+    $('.tab-btn[data-view="leaderboard"]').click();
+  }
+}
+
 async function api(path, options) {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Password': getAdminPassword() },
     ...options,
   });
+  if (res.status === 401) {
+    localStorage.removeItem('adminPassword');
+    updateAdminUI();
+    toast('Admin session expired — log in again to make changes');
+    throw new Error('unauthorized');
+  }
   if (!res.ok) {
     let msg = 'Request failed';
     try { msg = (await res.json()).error || msg; } catch (e) {}
@@ -592,8 +619,35 @@ function renderExistingMatches() {
   });
 }
 
+// ============ ADMIN LOGIN ============
+const adminBtn = $('#admin-toggle-btn');
+if (adminBtn) {
+  adminBtn.addEventListener('click', async () => {
+    if (isAdmin()) {
+      if (confirm('Log out of admin mode?')) {
+        localStorage.removeItem('adminPassword');
+        updateAdminUI();
+        toast('Logged out');
+      }
+      return;
+    }
+    const pw = prompt('Enter admin password:');
+    if (!pw) return;
+    try {
+      const res = await fetch('/api/admin/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+      if (!res.ok) { toast('Incorrect password'); return; }
+      localStorage.setItem('adminPassword', pw);
+      updateAdminUI();
+      toast('Admin unlocked');
+    } catch (e) {
+      toast('Login failed');
+    }
+  });
+}
+
 // ============ INIT + POLLING ============
 async function init() {
+  updateAdminUI();
   await refreshLeaderboard();
 }
 init();
